@@ -57,5 +57,27 @@
         "label": "Best streak"
       }
     ]
+  },
+  {
+    "slug": "dealer-wars",
+    "title": "Dealer Wars",
+    "tagline": "Buy low. Fix 'em up. Sell high.",
+    "description": "Run a used car lot. Bid at auctions, haggle with sellers, fix up beaters, hunt rare classics, and grow a gravel lot into an auto mall. Just don't owe Big Tony.",
+    "source": {
+      "repo": "EliteScouter/KG-Dealership",
+      "branch": "main"
+    },
+    "color": "#ff5a36",
+    "status": "beta",
+    "leaderboard": [
+      {
+        "key": "earned",
+        "label": "Money earned"
+      },
+      {
+        "key": "carsSold",
+        "label": "Cars sold"
+      }
+    ]
   }
 ]

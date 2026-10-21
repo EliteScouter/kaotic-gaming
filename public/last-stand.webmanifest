@@ -1,0 +1,17 @@
+{
+  "name": "Last Stand",
+  "short_name": "Last Stand",
+  "description": "One soldier. 1500 zones. Hold the line.",
+  "id": "/play/last-stand",
+  "start_url": "/play/last-stand",
+  "scope": "/",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "landscape",
+  "background_color": "#0d0f0c",
+  "theme_color": "#0d0f0c",
+  "icons": [
+    { "src": "/icons/last-stand-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/last-stand-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

@@ -1,0 +1,61 @@
+[
+  {
+    "slug": "last-stand",
+    "title": "Last Stand",
+    "tagline": "One soldier. 1500 zones. Hold the line.",
+    "description": "Auto-fire top-down zombie defense. Use towers, barrels and machine guns, kill the boss, extract, gear up in the Store, and beat level 1500 to Prestige.",
+    "source": {
+      "repo": "TimLeitch/solo-fighter",
+      "branch": "main",
+      "files": [
+        "index.html"
+      ]
+    },
+    "color": "#d9a93a",
+    "status": "live",
+    "leaderboard": [
+      {
+        "key": "bestLevel",
+        "label": "Best level"
+      },
+      {
+        "key": "prestige",
+        "label": "Prestige ★"
+      },
+      {
+        "key": "kills",
+        "label": "Kills"
+      },
+      {
+        "key": "bosses",
+        "label": "Bosses killed"
+      },
+      {
+        "key": "elites",
+        "label": "Elites killed"
+      }
+    ]
+  },
+  {
+    "slug": "color-magic",
+    "title": "Color Magic",
+    "tagline": "Keep the color loop moving.",
+    "description": "A dumpster-and-conveyor color sorter. Release color stacks onto the track and catch every piece in a matching dumpster before the loop jams.",
+    "source": {
+      "repo": "TimLeitch/color-match-game",
+      "branch": "main"
+    },
+    "color": "#7a4dd8",
+    "status": "live",
+    "leaderboard": [
+      {
+        "key": "level",
+        "label": "Level"
+      },
+      {
+        "key": "bestStreak",
+        "label": "Best streak"
+      }
+    ]
+  }
+]

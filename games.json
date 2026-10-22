@@ -79,5 +79,27 @@
         "label": "Cars sold"
       }
     ]
+  },
+  {
+    "slug": "drug-wars",
+    "title": "Drug Wars",
+    "tagline": "Buy low. Sell high. Stay alive.",
+    "description": "Hustle across nine neon districts of Vice Harbor: trade product, dodge Detective Kane, hire a crew, pull heists and build an empire before the city takes you out.",
+    "source": {
+      "repo": "EliteScouter/KG-DrugWars",
+      "branch": "main"
+    },
+    "color": "#ff2fb3",
+    "status": "beta",
+    "leaderboard": [
+      {
+        "key": "bestNetWorth",
+        "label": "Richest"
+      },
+      {
+        "key": "bestDays",
+        "label": "Days survived"
+      }
+    ]
   }
 ]

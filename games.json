@@ -84,7 +84,7 @@
     "slug": "drug-wars",
     "title": "Drug Wars",
     "tagline": "Buy low. Sell high. Stay alive.",
-    "description": "Hustle across nine neon districts of Vice Harbor: trade product, dodge Detective Kane, hire a crew, pull heists and build an empire before the city takes you out.",
+    "description": "Hustle across nine neon districts of Vice Harbor: trade twelve kinds of product, dodge cops all the way up to the Feds, build a crew, pull heists, win turf wars against six crime families and take the throne.",
     "source": {
       "repo": "EliteScouter/KG-DrugWars",
       "branch": "main"
@@ -93,11 +93,11 @@
     "status": "beta",
     "leaderboard": [
       {
-        "key": "bestNetWorth",
+        "key": "richest",
         "label": "Richest"
       },
       {
-        "key": "bestDays",
+        "key": "mostDays",
         "label": "Days survived"
       }
     ]

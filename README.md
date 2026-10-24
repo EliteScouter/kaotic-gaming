@@ -61,6 +61,9 @@ points. It is separate from the live site's data.
      that part of the repo), `files` (only these files, e.g. `["index.html"]`), `entry` (the page
      to open, default `index.html`). Files starting with a dot (`.github`, `.gitignore`) are skipped.
    - `leaderboard` (optional): numbers the game sends with `KG.report()` that get a high-score table.
+   - `relativePaths` (optional): `true` for a game that loads its files with plain relative paths
+     (`<link href="style.css">`). The site then opens it at `/play/my-game/`, so those paths work
+     just as when the game runs on its own.
    - `status`: `live`, `beta` (shows a Beta tag) or `hidden` (not listed, can't be played).
 
    Push the change to this repo; the site redeploys, downloads the game, and its card appears.

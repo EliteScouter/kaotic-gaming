@@ -822,7 +822,11 @@ async function handle(req, res) {
       if (!game) return send(res, 404, 'No such game.', 'text/plain; charset=utf-8');
       const user = currentUser(req);
       if (!user) return redirect(res, '/login?next=' + encodeURIComponent('/play/' + game.slug));
-      if (!play[2]) return serveGame(req, res, game, user);
+      if (!play[2]) {
+        // a game that loads its files with relative paths ("style.css") needs its page at /play/<slug>/
+        if (game.relativePaths && !p.endsWith('/')) return redirect(res, '/play/' + game.slug + '/' + url.search);
+        return serveGame(req, res, game, user);
+      }
       // extra files for multi-file games live in the game's "assets" folder (a downloaded game's own folder)
       const files = gameFiles(game);
       if (!files || !files.assets) return send(res, 404, 'Not found', 'text/plain; charset=utf-8');

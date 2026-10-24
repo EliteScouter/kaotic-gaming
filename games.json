@@ -96,6 +96,19 @@
     ]
   },
   {
+    "slug": "arrow-escape",
+    "title": "Arrow Escape",
+    "tagline": "Clear the board. Don't crash.",
+    "description": "A puzzle of packed arrows and coiled snakes. Send each one flying off the edge in the right order, without letting any crash into another.",
+    "source": {
+      "repo": "TimLeitch/arrow-escape",
+      "branch": "main"
+    },
+    "relativePaths": true,
+    "color": "#3fa9f5",
+    "status": "live"
+  },
+  {
     "slug": "dealer-wars",
     "title": "Dealer Wars",
     "tagline": "Buy low. Fix 'em up. Sell high.",

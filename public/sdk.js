@@ -19,8 +19,12 @@
   if (!boot) return;
   const game = boot.game;
   const HEADERS = { 'Content-Type': 'application/json', 'X-KG': '1' };
-  const call = (method, url, body, keepalive) =>
-    fetch(url, { method, headers: HEADERS, body: JSON.stringify(body || {}), credentials: 'same-origin', keepalive: !!keepalive });
+  // keepalive lets a request finish after the page is closed or hidden (browsers allow it for bodies up to 64 KB)
+  const call = (method, url, body, keepalive) => {
+    const json = JSON.stringify(body || {});
+    return fetch(url, { method, headers: HEADERS, body: json, credentials: 'same-origin', keepalive: !!keepalive && json.length < 60000 });
+  };
+  const leaving = () => document.visibilityState === 'hidden'; // tab hidden, app switched, or page closing
 
   let status = 'Playing', away = false;
 
@@ -33,7 +37,7 @@
     while (queued !== undefined) {
       const v = queued; queued = undefined;
       try {
-        const r = await call('PUT', `/api/save/${game}`, { data: v });
+        const r = await call('PUT', `/api/save/${game}`, { data: v }, leaving());
         KG.saveState = r.ok ? 'saved' : r.status === 401 ? 'signed-out' : 'error';
       } catch (e) { KG.saveState = 'error'; }
     }
@@ -42,12 +46,19 @@
 
   function event(type, data) { call('POST', `/api/event/${game}`, { type, data }).catch(() => {}); }
 
+  // reports in quick succession collapse into the last one; one made while the page is going away is sent at once
   let reportTimer = null, lastSummary = null;
+  function sendReport() {
+    clearTimeout(reportTimer); reportTimer = null;
+    call('POST', `/api/report/${game}`, { summary: lastSummary }, leaving()).catch(() => {});
+  }
   function report(summary) {
     lastSummary = summary;
     clearTimeout(reportTimer);
-    reportTimer = setTimeout(() => call('POST', `/api/report/${game}`, { summary: lastSummary }).catch(() => {}), 600);
+    if (leaving()) sendReport();
+    else reportTimer = setTimeout(sendReport, 600);
   }
+  const flushReport = () => { if (reportTimer) sendReport(); };
 
   function heartbeat(keepalive) { call('POST', `/api/heartbeat/${game}`, { status, away }, keepalive).catch(() => {}); }
 
@@ -83,5 +94,6 @@
   event('session_start');
   heartbeat();
   setInterval(() => { if (!document.hidden) heartbeat(); }, 20000);
-  document.addEventListener('visibilitychange', () => { away = document.hidden; heartbeat(away); });
+  document.addEventListener('visibilitychange', () => { away = document.hidden; heartbeat(away); if (away) flushReport(); });
+  addEventListener('pagehide', flushReport);
 })();

@@ -64,6 +64,13 @@ points. It is separate from the live site's data.
    - `relativePaths` (optional): `true` for a game that loads its files with plain relative paths
      (`<link href="style.css">`). The site then opens it at `/play/my-game/`, so those paths work
      just as when the game runs on its own.
+   - `csp` (optional): what else the game's page may load, e.g. a library from a CDN:
+     `{ "script-src": ["https://cdn.jsdelivr.net"], "img-src": ["blob:"] }`. Only that game's page gets it.
+   - `server` (optional): the game has its own multiplayer server, e.g.
+     `{ "host": "last-light", "port": 8000, "path": "/ws" }`. The game connects to `/play/my-game/ws`;
+     the site lets in signed-in players only (from its own pages) and passes the WebSocket on, adding
+     the player's account name as `X-KG-User`. The server itself runs as its own service in
+     `docker-compose.yml` (see the `last-light` service and `game-server/run.py`).
    - `status`: `live`, `beta` (shows a Beta tag) or `hidden` (not listed, can't be played).
 
    Push the change to this repo; the site redeploys, downloads the game, and its card appears.

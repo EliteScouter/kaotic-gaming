@@ -151,5 +151,45 @@
         "label": "Days survived"
       }
     ]
+  },
+  {
+    "slug": "last-light",
+    "title": "Last Light",
+    "tagline": "Squad up. Hold the line. Win the round.",
+    "description": "A 3D first-person shooter made by EliteAdna. Battle bots or team up online across three huge maps: The Yard, Lowtide and Old Town. Needs a computer with a keyboard and mouse.",
+    "source": {
+      "repo": "eliteadna/lastlight",
+      "branch": "main"
+    },
+    "relativePaths": true,
+    "server": {
+      "host": "last-light",
+      "port": 8000,
+      "path": "/ws"
+    },
+    "csp": {
+      "script-src": [
+        "https://cdn.jsdelivr.net"
+      ],
+      "connect-src": [
+        "https://cdn.jsdelivr.net",
+        "blob:"
+      ],
+      "img-src": [
+        "blob:"
+      ]
+    },
+    "color": "#9bdc3a",
+    "status": "beta",
+    "leaderboard": [
+      {
+        "key": "wins",
+        "label": "Victories"
+      },
+      {
+        "key": "kills",
+        "label": "Kills"
+      }
+    ]
   }
 ]

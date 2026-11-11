@@ -22,6 +22,7 @@ services:
       # the games come from their own GitHub repos (games.json "source"); private repos need a token that can read them
       GITHUB_TOKEN: "${GITHUB_TOKEN:-}"
       GAME_SYNC_MINUTES: "${GAME_SYNC_MINUTES:-5}"
+      KG_GAMES_DIR: /games
       # 99¢ Supporter Pack through PayPal (see DEPLOY.md, "Taking payments"). Leave empty to keep the shop off.
       PAYPAL_ENV: "${PAYPAL_ENV:-sandbox}"
       PAYPAL_CLIENT_ID: "${PAYPAL_CLIENT_ID:-}"
@@ -30,6 +31,24 @@ services:
       PAYPAL_TESTERS: "${PAYPAL_TESTERS:-}"
     volumes:
       - kg-data:/data
+      - kg-games:/games
+
+  # Last Light's multiplayer server: runs the game's own server.py from the copy the site downloaded,
+  # and restarts it when the game updates. Only the site can reach it (no ports published); the site
+  # lets in signed-in players only and passes their account name (X-KG-User) along.
+  last-light:
+    build: ./game-server
+    image: kaoticgaming-game-server
+    pull_policy: build
+    restart: unless-stopped
+    init: true
+    environment:
+      GAME_SLUG: last-light
+      GAME_COMMAND: python server.py
+      PORT: "8000"
+      KG_TRUST_USER_HEADER: "1"
+    volumes:
+      - kg-games:/games:ro
 
   # Optional: Cloudflare Tunnel, so no ports need to be opened on the server.
   # In the tunnel's published application routes, point the hostnames at http://site:8088
@@ -45,3 +64,4 @@ services:
 
 volumes:
   kg-data:
+  kg-games:

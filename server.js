@@ -17,8 +17,12 @@
 //    KG_ADMIN_USER / KG_ADMIN_PASSWORD   create this admin on start if no admin exists yet
 //    GITHUB_TOKEN             lets the site download games from private GitHub repos (see games.json "source")
 //    GAME_SYNC_MINUTES (5)    how often to check the games' repos for new commits
+//    KG_GAMES_DIR             where downloaded games go (default: a "games" folder in the data folder)
+//    GAME_SERVER_HOST         run every game's multiplayer server at this host instead of the one in
+//                             games.json (e.g. 127.0.0.1 when running the site without Docker)
 // ============================================================
 const http = require('node:http');
+const net = require('node:net');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -321,7 +325,8 @@ const gameBySlug = slug => games().find(g => g.slug === slug && g.status !== 'hi
 // so a push to the game's repo goes live without rebuilding the site. "branch", "folder" (part of the repo
 // to use), "files" (only these paths) and "entry" (the page to open) are optional. Private repos need GITHUB_TOKEN.
 // Games without "source" are files inside this project: "entry" and "assets" are paths relative to it.
-const GAMES_DIR = path.join(DATA_DIR, 'games');
+// its own folder (and Docker volume), so a game's multiplayer server can read the games without seeing player data
+const GAMES_DIR = process.env.KG_GAMES_DIR || path.join(DATA_DIR, 'games');
 const GAMES_STATE = path.join(GAMES_DIR, 'state.json');
 const GITHUB_TOKEN = (process.env.GITHUB_TOKEN || '').trim();
 const SYNC_MINUTES = Math.max(1, Number(process.env.GAME_SYNC_MINUTES) || 5);
@@ -395,15 +400,18 @@ async function syncGame(g) {
       await Promise.all(wanted.slice(i, i + 4).map(async t => {
         const file = inside(tmp, t.rel);
         if (!file || file === tmp) throw new Error(`unsafe file name ${t.path}`);
-        const buf = await github(`/repos/${src.repo}/git/blobs/${t.sha}`, true);
         fs.mkdirSync(path.dirname(file), { recursive: true });
-        fs.writeFileSync(file, buf);
+        // a file that hasn't changed since the last download is copied from it, not fetched again
+        const old = prev && prev.files && prev.files[t.rel] === t.sha && inside(path.join(GAMES_DIR, prev.dir), t.rel);
+        if (old && fs.existsSync(old)) return fs.copyFileSync(old, file);
+        fs.writeFileSync(file, await github(`/repos/${src.repo}/git/blobs/${t.sha}`, true));
       }));
     }
     fs.renameSync(tmp, dir);
   } catch (e) { fs.rmSync(tmp, { recursive: true, force: true }); throw e; }
 
-  syncState = { ...syncState, [g.slug]: { repo: src.repo, sha, dir: dirName, config, at: now() } };
+  const files = Object.fromEntries(wanted.map(t => [t.rel, t.sha]));
+  syncState = { ...syncState, [g.slug]: { repo: src.repo, sha, dir: dirName, config, files, at: now() } };
   fs.writeFileSync(GAMES_STATE + '.tmp', JSON.stringify(syncState, null, 1));
   fs.renameSync(GAMES_STATE + '.tmp', GAMES_STATE);
   console.log(`${g.title || g.slug}: ${prev ? 'updated to' : 'downloaded'} ${src.repo}@${sha.slice(0, 7)} (${wanted.length} file${wanted.length === 1 ? '' : 's'}).`);
@@ -750,7 +758,9 @@ const parse = s => { try { return JSON.parse(s); } catch (e) { return null; } };
 const decodePath = s => { try { return decodeURIComponent(s); } catch (e) { throw Object.assign(new Error('Bad address.'), { status: 400 }); } };
 
 // ---------- static files ----------
-const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.webp': 'image/webp', '.mp3': 'audio/mpeg', '.ogg': 'audio/ogg', '.wav': 'audio/wav', '.woff2': 'font/woff2', '.webmanifest': 'application/manifest+json' };
+const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.webp': 'image/webp', '.mp3': 'audio/mpeg', '.ogg': 'audio/ogg', '.wav': 'audio/wav', '.woff2': 'font/woff2', '.webmanifest': 'application/manifest+json',
+                '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.gltf': 'model/gltf+json', '.glb': 'model/gltf-binary', '.bin': 'application/octet-stream',
+                '.hdr': 'application/octet-stream', '.ktx2': 'image/ktx2', '.wasm': 'application/wasm', '.txt': 'text/plain; charset=utf-8' };
 function serveFile(res, file, extraHeaders = {}) {
   fs.readFile(file, (err, buf) => {
     if (err) return send(res, 404, 'Not found', 'text/plain; charset=utf-8');
@@ -761,6 +771,28 @@ function serveFile(res, file, extraHeaders = {}) {
 function inside(base, rel) {
   const full = path.resolve(base, '.' + path.sep + rel);
   return full === base || full.startsWith(base + path.sep) ? full : null;
+}
+
+// A game can ask for more on its own page than the site allows elsewhere, in games.json:
+// "csp": { "script-src": ["https://cdn.jsdelivr.net"], "img-src": ["blob:"] } (a library from a CDN, textures made in the page)
+const CSP_DIRECTIVES = new Set(['script-src', 'style-src', 'img-src', 'font-src', 'connect-src', 'media-src', 'worker-src']);
+const CSP_SOURCE_RE = /^(https:\/\/[a-z0-9*][a-z0-9.-]*(:\d+)?|blob:|data:|'wasm-unsafe-eval')$/;
+function gameHeaders(game) {
+  if (!game.csp || typeof game.csp !== 'object') return {};
+  const policy = new Map(SEC_HEADERS['Content-Security-Policy'].split(';').map(d => d.trim().split(/\s+/)).filter(d => d[0]).map(d => [d[0], d.slice(1)]));
+  for (const [name, sources] of Object.entries(game.csp)) {
+    if (!CSP_DIRECTIVES.has(name) || !Array.isArray(sources)) continue;
+    const add = sources.map(String).filter(v => CSP_SOURCE_RE.test(v));
+    policy.set(name, [...new Set([...(policy.get(name) || policy.get('default-src') || []), ...add])]);
+  }
+  return { 'Content-Security-Policy': [...policy].map(([k, v]) => [k, ...v].join(' ')).join('; ') };
+}
+// A game with its own multiplayer server, in games.json: "server": { "host": "last-light", "port": 8000, "path": "/ws" }.
+// Players reach it at /play/<slug>/ws; the site lets in signed-in players only and tells the server who they are.
+function gameServerOf(game) {
+  const s = game && game.server;
+  if (!s || typeof s !== 'object' || !/^[a-z0-9.-]{1,100}$/i.test(String(s.host || '')) || !(s.port > 0 && s.port < 65536)) return null;
+  return { host: process.env.GAME_SERVER_HOST || s.host, port: Number(s.port), path: /^\/[A-Za-z0-9/_.-]{0,100}$/.test(s.path || '') ? s.path : '/ws' };
 }
 
 // serve a game page with the site's player info and SDK injected before the game's own code
@@ -775,7 +807,7 @@ function serveGame(req, res, game, user) {
     const inject = `<script>window.KG_BOOT=${JSON.stringify(boot).replace(/</g, '\\u003c')};</script><script src="/sdk.js"></script>`;
     const i = html.search(/<script[\s>]/i);
     const page = i >= 0 ? html.slice(0, i) + inject + html.slice(i) : html + inject;
-    send(res, 200, page, 'text/html; charset=utf-8');
+    send(res, 200, page, 'text/html; charset=utf-8', gameHeaders(game));
   });
 }
 
@@ -1248,6 +1280,51 @@ async function runCommand(cmd, arg) {
   throw new Error(`Unknown command "${cmd}". Commands: create-admin <username>, backup <file.db>, sync-games`);
 }
 
+// ---------- game multiplayer servers ----------
+// A WebSocket to /play/<slug>/ws is passed through to that game's own server, for signed-in players only.
+// The server is told the player's account name (X-KG-User), and never sees the player's site cookie.
+function rejectUpgrade(socket, status, text) {
+  socket.end(`HTTP/1.1 ${status} ${text}\r\nConnection: close\r\nContent-Type: text/plain\r\nContent-Length: ${Buffer.byteLength(text)}\r\n\r\n${text}`);
+}
+function handleUpgrade(req, socket, head) {
+  socket.on('error', () => socket.destroy());
+  let url;
+  try { url = new URL(req.url, 'http://local'); } catch (e) { return rejectUpgrade(socket, 400, 'Bad Request'); }
+  const m = url.pathname.match(/^\/play\/([a-z0-9-]+)\/ws$/);
+  const game = m && gameBySlug(m[1]), srv = gameServerOf(game);
+  if (!srv) return rejectUpgrade(socket, 404, 'Not Found');
+  if (String(req.headers.upgrade || '').toLowerCase() !== 'websocket') return rejectUpgrade(socket, 400, 'Bad Request');
+  // only this site's own pages may open it (another site can't use a player's sign-in)
+  let originHost = '';
+  try { originHost = new URL(String(req.headers.origin || '')).host; } catch (e) {}
+  if (!originHost || originHost !== req.headers.host) return rejectUpgrade(socket, 403, 'Forbidden');
+  const user = currentUser(req);
+  if (!user) return rejectUpgrade(socket, 401, 'Sign in to play online');
+  if (limited('ws|' + user.id, 30, 60e3)) return rejectUpgrade(socket, 429, 'Too Many Requests');
+
+  const skip = new Set(['host', 'cookie', 'x-forwarded-for', 'x-real-ip', 'forwarded']);
+  const lines = [`GET ${srv.path}${url.search} HTTP/1.1`, `Host: ${srv.host}:${srv.port}`];
+  for (let i = 0; i < req.rawHeaders.length; i += 2) {
+    const name = req.rawHeaders[i], lower = name.toLowerCase();
+    if (skip.has(lower) || lower.startsWith('x-kg-') || lower.startsWith('cf-')) continue;
+    lines.push(`${name}: ${String(req.rawHeaders[i + 1]).replace(/[\r\n]/g, '')}`);
+  }
+  lines.push(`X-KG-User: ${user.username}`, `X-KG-User-Id: ${user.id}`, `X-Forwarded-For: ${clientIp(req)}`);
+  const upstream = net.connect(srv.port, srv.host);
+  let connected = false;
+  upstream.setTimeout(15000, () => upstream.destroy(new Error('timeout'))); // only while connecting
+  upstream.on('connect', () => {
+    connected = true;
+    upstream.setTimeout(0);
+    upstream.write(lines.join('\r\n') + '\r\n\r\n');
+    if (head && head.length) upstream.write(head);
+    socket.pipe(upstream).pipe(socket);
+  });
+  upstream.on('error', () => { if (connected) socket.destroy(); else rejectUpgrade(socket, 502, 'The game server is not running'); });
+  upstream.on('close', () => { if (connected) socket.destroy(); });
+  socket.on('close', () => upstream.destroy());
+}
+
 // ---------- start ----------
 function startServer() {
   // first admin from the environment (for Docker, where /setup can't be reached from the machine itself)
@@ -1261,6 +1338,7 @@ function startServer() {
       if (!res.headersSent) fail(res, err.status || 500, err.status ? err.message : 'Something went wrong on the server.');
     });
   });
+  server.on('upgrade', handleUpgrade);
   server.listen(PORT, HOST, () => {
     console.log(`Kaotic Gaming is running on ${HOST}:${PORT}${TRUST_PROXY ? ' (trusting reverse-proxy headers)' : ''}`);
     console.log(`Player data: ${DATA_DIR}`);

@@ -12,11 +12,12 @@ COPY server.js games.json ./
 COPY public ./public
 
 # run as the unprivileged "node" user; it must own the data folder
-RUN mkdir -p /data && chown node:node /data
+# (and the downloaded games' folder, its own volume so game servers can read it without seeing player data)
+RUN mkdir -p /data /games && chown node:node /data /games
 USER node
 
 EXPOSE 8088
-VOLUME ["/data"]
+VOLUME ["/data", "/games"]
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:' + (process.env.PORT || 8088) + '/healthz').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"

@@ -201,5 +201,8 @@ Games use `public/sdk.js` to save to the player's account and report progress to
 
 - Image: `node:24-alpine`, runs as the unprivileged `node` user.
 - App: `/app/server.js`.
-- Data: `/data/kaotic.db`, and the downloaded games in `/data/games/` (volume `kg-data`).
+- Data: `/data/kaotic.db` (volume `kg-data`); the downloaded games in `/games` (volume `kg-games`).
+- `last-light`: Last Light's multiplayer server. It runs the game's own `server.py` from the downloaded
+  copy (`game-server/run.py`), restarts it when the game updates, reads `/games` read-only, and has no
+  published port: players reach it only through the site at `/play/last-light/ws`, signed in.
 - Health check: `GET /healthz` every 30 s.
